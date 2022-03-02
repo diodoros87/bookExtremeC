@@ -21,16 +21,28 @@
 // w celu synchronizacji dostępu do stanu współdzielonego.
 sem_t *semaphore;
 
+int shared_var = 0;
+
+void* thread_body(void* arg) {
+  int* igredient = (int*)arg;
+  sem_wait(semaphore);
+  shared_var += *igredient;
+  printf("%d", shared_var);
+  sem_post(semaphore);
+  
+  return NULL;
+}
+/*
 void* thread_body_1(void* arg) {
   // Pobranie wskaźnika prowadzącego do zmiennej współdzielonej.
-  int* shared_var_ptr = (int*)arg;
+  int* shared_var = (int*)arg;
   // Oczekiwanie na semafor.
   sem_wait(semaphore);
   // Inkrementacja o 1 wartości zmiennej współdzielonej
   // przez bezpośredni zapis wartości pod adresem w pamięci.
-  (*shared_var_ptr)++;
+  (*shared_var)++;
   
-  printf("%d", *shared_var_ptr);
+  printf("%d", *shared_var);
   sem_post(semaphore);
   // Zwolnienie semafora.
   
@@ -39,33 +51,34 @@ void* thread_body_1(void* arg) {
 
 void* thread_body_2(void* arg) {
   // Pobranie wskaźnika prowadzącego do zmiennej współdzielonej.
-  int* shared_var_ptr = (int*)arg;
+  int* shared_var = (int*)arg;
   // Oczekiwanie na semafor.
   sem_wait(semaphore);
   // Inkrementacja o 1 wartości zmiennej współdzielonej
   // przez bezpośredni zapis wartości pod adresem w pamięci.
-  (*shared_var_ptr) += 2;
-  printf("%d", *shared_var_ptr);
+  (*shared_var) += 2;
+  printf("%d", *shared_var);
   // Zwolnienie semafora.
   sem_post(semaphore);
   return NULL;
 }
-
+*/
 int main(int argc, char** argv) {
 
   // Zmienna współdzielona.
-  int shared_var = 0;
+  
 
   // Uchwyty wątków.
   pthread_t thread1;
   pthread_t thread2;
+  pthread_t thread3;
 
-#ifdef __linux__
+#ifdef __APPLE__ // __linux__
   //printf("semaphore = sem_open(sem0, O_CREAT | O_EXCL, 0644, 1) %s \t\t\t%d\n", __FUNCTION__, shared_var);
   // Nienazwane semafory są nieobsługiwane na platformie macOS. Dlatego też
   // trzeba zainicjalizować semafor, podobnie jak w przypadku używania nazwanej
   // funkcji sem_open().
-  semaphore = sem_open("sem8", O_CREAT | O_EXCL, 0644, 1);
+  semaphore = sem_open("sem9", O_CREAT | O_EXCL, 0644, 1);
   if (semaphore != NULL)
      printf("O_CREAT | O_EXCL %s \t\t\t%d\n", __FUNCTION__, shared_var);
   else {
@@ -87,12 +100,17 @@ int main(int argc, char** argv) {
      fprintf(stderr, "sem_open error: %s\n", strerror(errno));
    assert(semaphore != NULL);
   // Utworzenie nowych wątków.
+  int one = 1;
   int result1 = pthread_create(&thread1, NULL,
-          thread_body_1, &shared_var);
+          thread_body, &one);
+  int two = 2;
   int result2 = pthread_create(&thread2, NULL,
-          thread_body_2, &shared_var);
+          thread_body, &two);
+  int three = 3;
+  int result3 = pthread_create(&thread3, NULL,
+          thread_body, &three);
 
-  if (result1 || result2) {
+  if (result1 || result2 || result3) {
     printf("Nie udało się utworzyć wątków.\n");
     exit(1);
   }
@@ -100,8 +118,9 @@ int main(int argc, char** argv) {
   // Oczekiwanie na zakończenie działania wątków.
   result1 = pthread_join(thread1, NULL);
   result2 = pthread_join(thread2, NULL);
+  result3 = pthread_join(thread3, NULL);
 
-  if (result1 || result2) {
+  if (result1 || result2 || result3) {
     printf("Nie udało się dołączyć wątków.\n");
     exit(2);
   }

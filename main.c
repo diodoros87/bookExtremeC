@@ -74,9 +74,9 @@ int test_threading(const bool_t valgrind) {
    FUNCTION_INFO(__FUNCTION__);
    static const char * const ld_path = "LD_LIBRARY_PATH=.";
    static const char * const directories[] = { "ch15/", "ch16/" };
-   static const char * const ch15[] = { /*"join_thread", "detach_thread", "race",
-      "race_corrupt_memory", */"race_to_data" };
-   static const char * const ch16[] = { /*"race_to_data_mutex", "race_cond_var",  "race_barrier", */"race_to_data_sem"};
+   static const char * const ch15[] = { /*"join_thread",  "detach_thread", "race",*/
+      "race_corrupt_memory"/*, "race_to_data" */}; 
+   static const char * const ch16[] = { /*"race_to_data_mutex", */"race_cond_var"/*,  "race_barrier", "race_to_data_sem"*/};
    int result = LAUNCH_EXECS(0, ch15, 0);
    if (OK == result)
       result = LAUNCH_EXECS(1, ch16, 755);

@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
     printf("Nie udało się dołączyć wątków.\n");
     exit(2);
   }
-  //pthread_exit(NULL);
+  pthread_exit(NULL);
   printf("\n");
   //pthread_exit(NULL);
   return 0;
