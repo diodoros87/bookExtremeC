@@ -12,12 +12,16 @@
 #include <limits.h>
 #include <errno.h> // Plik nagłówkowy wymagany do działania funkcji errno() i strerror().
 
+#include <fcntl.h>
+
+#include "../print.h"
+
 // Nagłówek standardu POSIX niezbędny podczas pracy z biblioteką pthread.
 #include <pthread.h>
 // Semafory nie zostały udostępnione przez plik nagłówkowy pthread.h.
 #include <semaphore.h>
 
-#ifdef __APPLE__
+#ifdef __linux__ //__APPLE__
 // Na platformie Apple konieczne jest symulowanie funkcjonalności barier.
 pthread_mutex_t barrier_mutex;
 pthread_cond_t  barrier_cv;
@@ -59,11 +63,12 @@ void* hydrogen_thread_body(void* arg) {
   // Dwa wątki wodoru mogą wejść do sekcji o znaczeniu krytycznym.
   sem_wait(hydrogen_sem);
   // Oczekiwanie na dołączenie pozostałych wątków wodoru.
-#ifdef __APPLE__
+#ifdef __linux__ //__APPLE__
   barrier_wait();
 #else
   pthread_barrier_wait(&water_barrier);
 #endif
+  LOG("\n%s\n", __FUNCTION__);
   sem_post(hydrogen_sem);
   return NULL;
 }
@@ -71,39 +76,51 @@ void* hydrogen_thread_body(void* arg) {
 void* oxygen_thread_body(void* arg) {
   pthread_mutex_lock(&oxygen_mutex);
   // Oczekiwanie na dołączenie wątków wodoru.
-#ifdef __APPLE__
+#ifdef __linux__ //__APPLE__
   barrier_wait();
 #else
   pthread_barrier_wait(&water_barrier);
 #endif
   num_of_water_molecules++;
+  LOG("\n%s %u\n", __FUNCTION__, num_of_water_molecules);
   pthread_mutex_unlock(&oxygen_mutex);
   return NULL;
 }
 
-int main(int argc, char** argv) {
+void semaphore_init(sem_t** semaphore, const char * sem_name_0, const char * sem_name_1, unsigned int value) {
+#ifdef __linux__ //__APPLE__
+   *semaphore = sem_open(sem_name_0, O_CREAT | O_EXCL, 0644, value);
+   if (*semaphore != NULL)
+      printf("O_CREAT | O_EXCL %s \t\t\t%p\n", __FUNCTION__, *semaphore);
+   else {
+      fprintf(stderr, "sem_open error: %s\n", strerror(errno));
+      if (*semaphore = sem_open(sem_name_1, O_EXCL, 0644, value))
+         printf("O_EXCL %s \t\t\t%p\n", __FUNCTION__, *semaphore);
+      else
+         fprintf(stderr, "sem_open error: %s\n", strerror(errno));
+   }
+   //semaphore = sem_open("Qwdf56gh77jggt", O_EXCL, 0644, 1);
+#else
+   printf("sem_t local_semaphore %s \t\t\t%p\n", __FUNCTION__, *semaphore);
+   static sem_t local_semaphore;
+   *semaphore = &local_semaphore;
+   // Inicjalizacja semafora jako muteksu (semafor binarny).
+   sem_init(*semaphore, 0, value);
+#endif
+}
 
+int main(int argc, char** argv) {
   num_of_water_molecules = 0;
 
-  // Inicjalizacja muteksu tlenu.
   pthread_mutex_init(&oxygen_mutex, NULL);
 
-  // Inicjalizacja semafora wodoru.
-#ifdef __APPLE__
-  hydrogen_sem = sem_open("hydrogen_sem",
-          O_CREAT | O_EXCL, 0644, 2);
-#else
-  sem_t local_sem;
-  hydrogen_sem = &local_sem;
-  sem_init(hydrogen_sem, 0, 2);
-#endif
+   semaphore_init(&hydrogen_sem, "hydrogen_1", "hydrogen_0", 2);
 
-  // Inicjalizacja bariery wody.
-#ifdef __APPLE__
+#ifdef __linux__ //__APPLE__
   pthread_mutex_init(&barrier_mutex, NULL);
   pthread_cond_init(&barrier_cv, NULL);
   barrier_thread_count = 0;
-  barrier_thread_limit = 0;
+  barrier_thread_limit = 3;
   barrier_round = 0;
 #else
   pthread_barrier_init(&water_barrier, NULL, 3);
@@ -143,7 +160,7 @@ int main(int argc, char** argv) {
   printf("Liczba utworzonych cząsteczek wody: %d\n",
           num_of_water_molecules);
 
-#ifdef __APPLE__
+#ifdef __linux__ //__APPLE__
   sem_close(hydrogen_sem);
 #else
   sem_destroy(hydrogen_sem);
