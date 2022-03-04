@@ -73,17 +73,18 @@ int main(int argc, char** argv) {
   pthread_t thread2;
   pthread_t thread3;
 
-#ifdef __APPLE__ // __linux__
+#ifdef __linux__ // __linux__
   //printf("semaphore = sem_open(sem0, O_CREAT | O_EXCL, 0644, 1) %s \t\t\t%d\n", __FUNCTION__, shared_var);
   // Nienazwane semafory są nieobsługiwane na platformie macOS. Dlatego też
   // trzeba zainicjalizować semafor, podobnie jak w przypadku używania nazwanej
   // funkcji sem_open().
-  semaphore = sem_open("sem9", O_CREAT | O_EXCL, 0644, 1);
+  semaphore = sem_open("sem14", O_CREAT | O_EXCL, 0644, 1);
   if (semaphore != NULL)
      printf("O_CREAT | O_EXCL %s \t\t\t%d\n", __FUNCTION__, shared_var);
   else {
      fprintf(stderr, "sem_open error: %s\n", strerror(errno));
-     if (semaphore = sem_open("sem8", O_EXCL, 0644, 1))
+     semaphore = sem_open("sem14", O_EXCL, 0644, 1);
+     if (semaphore != NULL)
         printf("O_EXCL %s \t\t\t%d\n", __FUNCTION__, shared_var);
      else
         fprintf(stderr, "sem_open error: %s\n", strerror(errno));
@@ -127,10 +128,10 @@ int main(int argc, char** argv) {
 
 #ifdef __linux__
   if (sem_close(semaphore))
-     fprintf(stderr, "sem_close error: %s\n", strerror(errno));
 #else
-  sem_destroy(semaphore);
+  if (sem_destroy(semaphore))
 #endif
+   fprintf(stderr, " sem_close failed: %s", strerror(errno));
   
   printf("\n----------------------- %s \t\t\t%d\n", __FUNCTION__, shared_var);
 

@@ -54,7 +54,7 @@ pthread_barrier_t water_barrier;
 pthread_mutex_t   oxygen_mutex;
 
 // Ogólny semafor pozwalający na synchronizację wątków przedstawiających wodór.
-sem_t*            hydrogen_sem;
+sem_t*            hydrogen_sem = NULL;
 
 // Zmienna współdzielona w postaci liczby całkowitej przeznaczonej do zliczania cząsteczek wody.
 unsigned int      num_of_water_molecules;
@@ -87,34 +87,46 @@ void* oxygen_thread_body(void* arg) {
   return NULL;
 }
 
-void semaphore_init(sem_t** semaphore, const char * sem_name_0, const char * sem_name_1, unsigned int value) {
+
+void semaphore_initial(sem_t** semaphore, const char * sem_name, unsigned int value) {
+   LOG("*semaphore in %s \t\t\t%p\n", __FUNCTION__, *semaphore); 
 #ifdef __linux__ //__APPLE__
-   *semaphore = sem_open(sem_name_0, O_CREAT | O_EXCL, 0644, value);
-   if (*semaphore != NULL)
-      printf("O_CREAT | O_EXCL %s \t\t\t%p\n", __FUNCTION__, *semaphore);
+   *semaphore = sem_open(sem_name, O_CREAT, 0644, value);
+   //*semaphore = sem_open(sem_name, O_CREAT | O_EXCL, 0644, value);
+   if (*semaphore != SEM_FAILED) {
+      LOG("O_CREAT %s \t\t\t%p\n", __FUNCTION__, *semaphore);
+   }
    else {
       fprintf(stderr, "sem_open error: %s\n", strerror(errno));
-      if (*semaphore = sem_open(sem_name_1, O_EXCL, 0644, value))
-         printf("O_EXCL %s \t\t\t%p\n", __FUNCTION__, *semaphore);
+      *semaphore = sem_open(sem_name, O_EXCL, 0644, value);
+      if (*semaphore != SEM_FAILED) {
+         LOG("O_EXCL %s \t\t\t%p\n", __FUNCTION__, *semaphore);
+      }
       else
          fprintf(stderr, "sem_open error: %s\n", strerror(errno));
    }
    //semaphore = sem_open("Qwdf56gh77jggt", O_EXCL, 0644, 1);
 #else
-   printf("sem_t local_semaphore %s \t\t\t%p\n", __FUNCTION__, *semaphore);
+   //printf("sem_t local_semaphore %s \t\t\t%p\n", __FUNCTION__, *semaphore);
    static sem_t local_semaphore;
    *semaphore = &local_semaphore;
    // Inicjalizacja semafora jako muteksu (semafor binarny).
    sem_init(*semaphore, 0, value);
+   LOG("sem_t local_semaphore %s \t\t\t%p\n", __FUNCTION__, *semaphore);
 #endif
 }
 
 int main(int argc, char** argv) {
-  num_of_water_molecules = 0;
-
-  pthread_mutex_init(&oxygen_mutex, NULL);
-
-   semaphore_init(&hydrogen_sem, "hydrogen_1", "hydrogen_0", 2);
+   num_of_water_molecules = 0;
+   semaphore_initial(&hydrogen_sem, "sem_hydro", 2);
+   /*
+   static sem_t local_semaphore;
+   hydrogen_sem = &local_semaphore;
+   // Inicjalizacja semafora jako muteksu (semafor binarny).
+   sem_init(hydrogen_sem, 0, 2);
+   LOG("sem_t local_semaphore %s \t\t\t%p\n", __FUNCTION__, hydrogen_sem);
+   */
+   pthread_mutex_init(&oxygen_mutex, NULL);
 
 #ifdef __linux__ //__APPLE__
   pthread_mutex_init(&barrier_mutex, NULL);
@@ -148,7 +160,7 @@ int main(int argc, char** argv) {
     }
   }
 
-  printf("Oczekiwanie na reakcję atomów wodoru i tlenu ...\n");
+  LOG("Oczekiwanie na reakcję atomów wodoru i tlenu ...%c", '\n');
   // Oczekiwanie na zakończenie działania wszystkich wątków.
   for (int i = 0; i < 150; i++) {
     if (pthread_join(thread[i], NULL)) {
@@ -157,14 +169,15 @@ int main(int argc, char** argv) {
     }
   }
 
-  printf("Liczba utworzonych cząsteczek wody: %d\n",
+  LOG("Liczba utworzonych cząsteczek wody: %d\n",
           num_of_water_molecules);
 
 #ifdef __linux__ //__APPLE__
-  sem_close(hydrogen_sem);
+  if (sem_close(hydrogen_sem))
 #else
-  sem_destroy(hydrogen_sem);
+  if (sem_destroy(hydrogen_sem))
 #endif
+   { LOG(" sem_close failed: %s", strerror(errno)); }
 
   return 0;
 }
