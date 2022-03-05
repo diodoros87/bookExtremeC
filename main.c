@@ -81,7 +81,7 @@ int test_threading(const bool_t valgrind) {
    };
    int result = LAUNCH_EXECS(0, ch15, 0);
    if (OK == result)
-      result = LAUNCH_EXECS(1, ch16, 755);
+      result = LAUNCH_EXECS(1, ch16, 3);
    return result;
 }
 
