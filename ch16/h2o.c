@@ -13,6 +13,7 @@
 #include <errno.h> // Plik nagłówkowy wymagany do działania funkcji errno() i strerror().
 
 #include <fcntl.h>
+//#include <signal.h>
 
 #include "../print.h"
 
@@ -21,7 +22,7 @@
 // Semafory nie zostały udostępnione przez plik nagłówkowy pthread.h.
 #include <semaphore.h>
 
-#ifndef __linux__ //__APPLE__
+#ifdef __linux__ //__APPLE__
 // Na platformie Apple konieczne jest symulowanie funkcjonalności barier.
 pthread_mutex_t barrier_mutex;
 pthread_cond_t  barrier_cv;
@@ -60,11 +61,38 @@ sem_t*            carbon_sem = NULL;
 // Zmienna współdzielona w postaci liczby całkowitej przeznaczonej do zliczania cząsteczek wody.
 unsigned int      num_of_water_molecules;
 
+void semaphore_close(int p) {
+   if (hydrogen_sem != NULL)
+#ifdef __linux__ //__APPLE__
+      if (sem_close(hydrogen_sem))
+#else
+      if (sem_destroy(hydrogen_sem))
+#endif
+         { LOG(" sem_close failed: %s", strerror(errno)); }
+   
+   if (carbon_sem != NULL)
+#ifdef __linux__ //__APPLE__
+      if (sem_close(carbon_sem))
+#else
+      if (sem_destroy(carbon_sem))
+#endif
+         { LOG(" sem_close failed: %s", strerror(errno)); }
+}
+
+void handle_signal(int parameter) {
+   semaphore_close(2);
+   exit(9);
+}
+
+void at_exit(void) {
+   semaphore_close(2);
+}
+
 void* hydrogen_thread_body(void* arg) {
   // Dwa wątki wodoru mogą wejść do sekcji o znaczeniu krytycznym.
   sem_wait(hydrogen_sem);
   // Oczekiwanie na dołączenie pozostałych wątków wodoru.
-#ifndef __linux__ //__APPLE__
+#ifdef __linux__ //__APPLE__
   barrier_wait();
 #else
   pthread_barrier_wait(&water_barrier);
@@ -78,7 +106,7 @@ void* carbon_thread_body(void* arg) {
   // Dwa wątki wodoru mogą wejść do sekcji o znaczeniu krytycznym.
   sem_wait(carbon_sem);
   // Oczekiwanie na dołączenie pozostałych wątków wodoru.
-#ifndef __linux__ //__APPLE__
+#ifdef __linux__ //__APPLE__
   barrier_wait();
 #else
   pthread_barrier_wait(&water_barrier);
@@ -91,7 +119,7 @@ void* carbon_thread_body(void* arg) {
 void* oxygen_thread_body(void* arg) {
   pthread_mutex_lock(&oxygen_mutex);
   // Oczekiwanie na dołączenie wątków wodoru.
-#ifndef __linux__ //__APPLE__
+#ifdef __linux__ //__APPLE__
   barrier_wait();
 #else
   pthread_barrier_wait(&water_barrier);
@@ -102,12 +130,20 @@ void* oxygen_thread_body(void* arg) {
   return NULL;
 }
 
+sem_t * get_local_hydrogen_semaphore() {
+   static sem_t local_semaphore;
+   return &local_semaphore;
+}
 
+sem_t * get_local_carbon_semaphore() {
+   static sem_t local_semaphore;
+   return &local_semaphore;
+}
+
+#ifdef __linux__ //__APPLE__
 void semaphore_initial(sem_t** semaphore, const char * sem_name, unsigned int value) {
-   LOG("*semaphore in %s \t\t\t%p\n", __FUNCTION__, *semaphore); 
-#ifndef __linux__ //__APPLE__
+   LOG("*semaphore in %p \t\t\t%p\n", __FUNCTION__, *semaphore); 
    *semaphore = sem_open(sem_name, O_CREAT, 0644, value);
-   //*semaphore = sem_open(sem_name, O_CREAT | O_EXCL, 0644, value);
    if (*semaphore != SEM_FAILED) {
       LOG("O_CREAT %s \t\t\t%p\n", __FUNCTION__, *semaphore);
    }
@@ -120,36 +156,42 @@ void semaphore_initial(sem_t** semaphore, const char * sem_name, unsigned int va
       else
          fprintf(stderr, "sem_open error: %s\n", strerror(errno));
    }
-   //semaphore = sem_open("Qwdf56gh77jggt", O_EXCL, 0644, 1);
+
+   LOG("sem_t *semaphore %p \t\t\t%p\n", __FUNCTION__, *semaphore);
+}
 #else
-   //printf("sem_t local_semaphore %s \t\t\t%p\n", __FUNCTION__, *semaphore);
-   static sem_t local_semaphore;
-   *semaphore = &local_semaphore;
-   // Inicjalizacja semafora jako muteksu (semafor binarny).
+void semaphore_initial(sem_t** semaphore, sem_t * (* get_local_semaphore)(void), unsigned int value) {
+   *semaphore = get_local_semaphore();
    sem_init(*semaphore, 0, value);
    LOG("sem_t local_semaphore %s \t\t\t%p\n", __FUNCTION__, *semaphore);
-#endif
 }
+#endif
 
 //#define CLOSE_SEM(semaphore) 
 
-void create_threads(const int START, const int END, pthread_t * thread_array, void* (*func)(void*), const char * error) {
+void create_threads(const int START, const int END, pthread_t * thread_array, void* (*function)(void*), const char * error) {
    for (int i = START; i < END; i++) {
-      if (pthread_create(thread_array + i, NULL, func, NULL)) {
+      if (pthread_create(thread_array + i, NULL, function, NULL)) {
          LOG("%s\n", error);
          exit(1);
       }
    }
 }
    
-
 int main(int argc, char** argv) {
+   //signal(SIGINT, handle_signal);
+   atexit(semaphore_close);
    num_of_water_molecules = 0;
-   semaphore_initial(&carbon_sem, "semaph_carbon", 2);
-   semaphore_initial(&hydrogen_sem, "semaph_hydrogen", 6);
+#ifdef __linux__
+   semaphore_initial(&carbon_sem, "semaphore_Carbon0", 2);
+   semaphore_initial(&hydrogen_sem, "semaphore_Hydrog0", 6);
+#else
+   semaphore_initial(&carbon_sem, get_local_carbon_semaphore, 2);
+   semaphore_initial(&hydrogen_sem, get_local_hydrogen_semaphore, 6);
+#endif
    pthread_mutex_init(&oxygen_mutex, NULL);
 
-#ifndef __linux__ //__APPLE__
+#ifdef __linux__ //__APPLE__
   pthread_mutex_init(&barrier_mutex, NULL);
   pthread_cond_init(&barrier_cv, NULL);
   barrier_thread_count = 0;
@@ -167,31 +209,19 @@ int main(int argc, char** argv) {
    create_threads(50, 350, thread, hydrogen_thread_body, "Nie można utworzyć wątku wodoru.\n");
    create_threads(350, 450, thread, carbon_thread_body, "Nie można utworzyć wątku wegla.\n");
 
-  LOG("Oczekiwanie na reakcję atomów wodoru i tlenu ...%c", '\n');
-  // Oczekiwanie na zakończenie działania wszystkich wątków.
-  for (int i = 0; i < 450; i++) {
-    if (pthread_join(thread[i], NULL)) {
-      printf("Nie udało się dołączyć wątku.\n");
-      exit(3);
-    }
-  }
+   LOG("Oczekiwanie na reakcję atomów wodoru i tlenu ...%c", '\n');
+   // Oczekiwanie na zakończenie działania wszystkich wątków.
+   for (int i = 0; i < 450; i++) {
+      if (pthread_join(thread[i], NULL)) {
+         printf("Nie udało się dołączyć wątku.\n");
+         exit(3);
+      }
+   }
 
-  LOG("Liczba utworzonych cząsteczek wody: %d\n",
-          num_of_water_molecules);
+   LOG("Liczba utworzonych cząsteczek wody: %d\n",
+            num_of_water_molecules);
 
-#ifndef __linux__ //__APPLE__
-  if (sem_close(hydrogen_sem))
-#else
-  if (sem_destroy(hydrogen_sem))
-#endif
-   { LOG(" sem_close failed: %s", strerror(errno)); }
-   
-#ifndef __linux__ //__APPLE__
-  if (sem_close(carbon_sem))
-#else
-  if (sem_destroy(carbon_sem))
-#endif
-   { LOG(" sem_close failed: %s", strerror(errno)); }
+   //semaphore_close();
 
   return 0;
 }

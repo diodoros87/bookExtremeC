@@ -18,6 +18,13 @@ int main(int argc, char** argv) {
 
   // Uchwyt wątku.
   pthread_t thread;
+  int i = 0;
+  int j = 0;
+  int a = 0;
+  i++;
+  printf("%d\n", i);
+  printf("%d\n", ++j);
+  printf("%d\n", ++a);
 
   // Utworzenie nowego wątku.
   int result = pthread_create(&thread, NULL, thread_body, NULL);
