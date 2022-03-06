@@ -23,6 +23,7 @@ void* thread_body_2(void* arg) {
 int main(int argc, char** argv) {
 
   size_t buffer_len = PTHREAD_STACK_MIN + 100;
+  printf("PTHREAD_STACK_MIN: %d\n", PTHREAD_STACK_MIN);
   // Bufor zaalokowany na stercie i użyty jako
   // obszar stosu wątku.
   char *buffer = (char*)malloc(buffer_len * sizeof(char));

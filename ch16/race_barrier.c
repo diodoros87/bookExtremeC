@@ -38,7 +38,7 @@ void* thread_body_2(void* arg) {
 */
 void barrier_init(pthread_barrier_t * barrier, const pthread_barrierattr_t * attr, unsigned int count) {
    if (pthread_barrier_init(barrier, attr, count)) {
-      LOG("sem_open error: %s\n", strerror(errno));
+      LOG("pthread_barrier_init error: %s\n", strerror(errno));
       exit(1);
    }
 }
