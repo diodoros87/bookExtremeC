@@ -29,7 +29,8 @@ void barrier_init(pthread_barrier_t * barrier, const pthread_barrierattr_t * att
 }
 
 void barrier_wait(pthread_barrier_t * barrier) {
-   pthread_barrier_wait(barrier);
+   if (NULL != barrier)
+      pthread_barrier_wait(barrier);
 //    if (NULL != barrier && pthread_barrier_wait(barrier)) {
 //       fprintf(stderr, "pthread_barrier_wait error: %s\n", strerror(errno));
 //       exit(1);
