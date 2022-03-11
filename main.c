@@ -77,11 +77,11 @@ int test_threading(const bool_t valgrind) {
    static const char * const ch15[] = { /*"join_thread",  */"detach_thread"/*, "race",
       "race_corrupt_memory", "race_to_data" */}; 
    static const char * const ch16[] = { /*"race_to_data_mutex", "race_cond_var", "race_barrier", 
-      "race_to_data_sem", "h2o",  "heap_stack", */"stack_shared_var"
+      "race_to_data_sem", "h2o",  "heap_stack", "stack_shared_var", */ "shared_heap"
    };
    int result = LAUNCH_EXECS(0, ch15, 0);
    if (OK == result)
-      result = LAUNCH_EXECS(1, ch16, 100);
+      result = LAUNCH_EXECS(1, ch16, 10);
    return result;
 }
 

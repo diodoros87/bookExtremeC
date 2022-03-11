@@ -122,8 +122,8 @@ int main(int argc, char** argv) {
 
   // Usunięcie stanu współdzielonego oraz zwolnienie obiektu muteksu
   // i zmiennej warunkowej.
-  for(int i = 0; i < 3; i++)
-     shared_state_destroy(state + i);
+  //for(int i = 0; i < 3; i++)
+   shared_state_destroy(&ss);
   
   LOG("\n----------------------- %s \t\t\t%d\n", __FUNCTION__, state->shared->actual_print);
 

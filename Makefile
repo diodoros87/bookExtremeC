@@ -1,11 +1,11 @@
 CC = gcc
-#CC = clang
+CC = clang
 CFLAGS = -Wfatal-errors -Wall -Wextra -Wconversion -std=gnu11 -O0  #-fsanitize=address  
 
 LDFLAGS = #-fsanitize=address -static-libasan 
 LIBS = -lpthread
 
-PROGRAMS  = test main ch15/join_thread  ch15/detach_thread ch15/race_corrupt_memory ch15/race ch15/race_to_data ch16/race_to_data_mutex ch16/race_barrier ch16/race_to_data_sem ch16/race_cond_var ch16/h2o ch16/heap_stack ch16/stack_shared_var
+PROGRAMS  = test main ch15/join_thread  ch15/detach_thread ch15/race_corrupt_memory ch15/race ch15/race_to_data ch16/race_to_data_mutex ch16/race_barrier ch16/race_to_data_sem ch16/race_cond_var ch16/h2o ch16/heap_stack ch16/stack_shared_var ch16/shared_heap
 
 GCC_CFLAGS = -DMESSAGE='"Compiled with GCC"' 
 CLANG_CFLAGS = -DMESSAGE='"Compiled with Clang"' -v
@@ -91,6 +91,9 @@ ch16/heap_stack: ch16/heap_stack.o
 	
 ch16/stack_shared_var: ch16/stack_shared_var.o
 	$(CC) $(CFLAGS) $(LDFLAGS) $(LIBS) ch16/stack_shared_var.o -o ch16/stack_shared_var
+	
+ch16/shared_heap: ch16/shared_heap.o
+	$(CC) $(CFLAGS) $(LDFLAGS) $(LIBS) ch16/shared_heap.o -o ch16/shared_heap
 
 clean :
 	rm $(PROGRAMS) *.o ch15/*.o ch16/*.o
